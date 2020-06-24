@@ -93,8 +93,10 @@ Entire "theoretical" total delay can include following components:
 - delay in disturbance detector and MG controller or other controllers,
 - communication latency, packet dropouts delays in communication "back" from controller to actuator.
 
-**Communication**\
-The components of the setup have been implemented inside of a laboratory consiting of multiple networks. The components are connected to a single setup through tunneling of a configured OpenVPN network. The wireless communication has not been implemented in the current setup.
+**Networking and encryption**\
+The components of the setup have been implemented inside of a laboratory consiting of multiple networks. 
+The components are connected to a single setup through tunneling of a configured OpenVPN network, which can also correspond to a real-world implementation due to 256-bit OpenSSL encryption for communication between the meters and the cloud.
+No wireless communication has been implemented in the current setup.
 
 **References**\
 [1] P. Romano and M. Paolone, "Enhanced Interpolated-DFT for Synchrophasor Estimation in FPGAs: Theory, Implementation, and Validation of a PMU Prototype," in IEEE Transactions on Instrumentation and Measurement, vol. 63, no. 12, pp. 2824-2836, Dec. 2014, doi: 10.1109/TIM.2014.2321463.\
