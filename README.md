@@ -27,42 +27,71 @@ Final docker is the controller container, which cooperate with other containers.
 The IoT devices of the setup are the following: (1) Phasor measurement unit (PMU), which is the IoT device in form of a physical hardware that communicates measurements to the cloud through publishing MQTT messages and (2) RTDSvm, which is a virtual machine (i.e. non-physical entity) that forwards measurements or control settings from and to the enviornment in RTDS simulator, respectively. The virtual machine emulates multiple devices, both those suppyling meter data to the cloud as well as those receiving setpoint from the controller (i.e. actuators). The measurements data are sent using IoT Agent, Mosquitto Broker, stored in Mongo/Crate DB, and through subsriptions of Quantum Leap also avialable in Grafana for visualisation. Similarly with the output of MG controller i.e. control setpoints for inverters and circuit breakers of loads. 
 
 **MG controller**\
-MG Controller container is implemented in Python 3. It has an additional connection to the IoT agent (with respect to the setup in [2]) in order to send or receive the measurements in sub-second intervals (marked as dashed line in the Fig. 1). Due to the nature of the phenomena in islanded microgrid (high dynamics of electrical waveforms), a quick communication is necessary. 
+MG Controller container is implemented in Python 3. 
+It has an additional connection to the IoT agent (additional with respect to the setup in "IoT over MQTT Tutorial") in order to send or receive the measurements 
+in sub-second intervals (connection marked as dashed line in the Fig. 1). Due to dynamics of the phenomena in islanded microgrid (fast electrical waveforms), 
+a frequent and quick communication is necessary. 
 
-Microgrid secondary load shedding (frequency control):
-The microgrid service provides secondary frequency control in an islanded microgrid with three inverters (grid forming, grid feeding and grid supporting) and loads. Dynamic conditions are emulated through connection and disconnection of loads (eventually through modifying their dynamic load values). The controller service running in the cloud needs to therefore exectue the following tasks:
+Microgrid secondary control (frequency control):
+MG controller in the presented setup, provides event-based secondary frequency control in an islanded microgrid with three inverters 
+(grid forming, grid feeding and grid supporting) and loads. Dynamic conditions are emulated through connection and disconnection of 
+loads (eventually through modifying their dynamic load values). 
+The controller service running in the cloud needs to therefore exectue the following basic tasks:
 * Synchronize the measurements including phasors from different sources (PDC - phasor data concentrator, as recommended by standard [4])
-* Assess whether any action needs to be taken by the controller (Disturbance Detector)
-* Derive an appropriate action for frequency control and execute it through sending appropriate commands (MGCC - microgrid centralized controller)
+* Detect whether any load quick shedding action needs to be taken by the controller and take an action (event-based Disturbance Detector)
+* Continously derive setpoints for inverters for accurate power sharing (continouse MGCC) and send them to inverters.
+
+In order to check the performance of the platform, the first two tasks are mainly exploited (see some observations from tests below).
 
 **RTDS environment**\
-Real-time digital simulator (RTDS) simulates a islanded microgrid with 3 distributed generators run by 3 inverters. In the folder grid_model one can find the model of microgrid. It is configured for communication with the RTDSvm, which is responsible for further communication with the cloud.
+Real-time digital simulator (RTDS) simulates a islanded microgrid with 3 distributed generators run by 3 inverters. 
+In the folder grid_model one can find the model of microgrid. It is configured for communication with the RTDSvm, which is responsible 
+for further, bi-directional communication with the cloud.
 
 **PMU**\
-Phasor Measurement Unit used in the setup is the extended version of low-cost PMU developed in ACS of RWTH Aachen. The complete basic version of the PMU software is published: https://www.fein-aachen.org/en/projects/, while the extension-development developed for the purpose of this setup is included in the pmu folder. As the result, PMU can act as IoT device and publish messages into the cloud with higher reporting rate.
+Phasor Measurement Unit used in the setup is the extended version of low-cost PMU developed in ACS of RWTH Aachen. 
+The complete basic version of the PMU software is published: https://www.fein-aachen.org/en/projects/, 
+while the extension-development developed for the purpose of this setup is included in the pmu folder. 
+As the result, PMU can act as IoT device and publish messages into the cloud with higher reporting rate.
 
-PMU calculates the phasors using Modulated Sliding Enchanced Interpolated DFT based on [1]-[3] as a state of the art phasor estimation algorithm. It is therefore able to calculate magnitude, frequency, RoCoF as required by c37.118 [4] and these data are then sent and used by the controller. The algorithm has been implemented with the purposed of very high reporting rate (reporting of measurement data to the controller in the cloud) and thus the PMU is able to calculate and publish to the broker up to 50 frames (aforementioned sets of measurements) per second.
+PMU calculates the phasors using Modulated Sliding Enchanced Interpolated DFT based on [1]-[3] as a state of the art phasor estimation algorithm. 
+It is therefore able to calculate magnitude, frequency, RoCoF as required by c37.118 [4] and these data are then sent and used by the controller. 
+The algorithm has been implemented with the purposed of very high reporting rate (reporting of measurement data to the controller in the cloud) 
+and thus the PMU is able to calculate and publish to the broker up to 50 frames (aforementioned sets of measurements) per second.
 
-**Results**\
-Due to the nature of electrical grid with high dynamics (like islanded microgrid), the main purpose of the setup is to investigate how the FIWARE powered cloud can handle a service requiring relatively quick communication (low communication latency). Figure 2 presents a delay of one-way communication between the PMU phasors timestamps (defined as the middle of acquisition window) and the moment of acquiring the data by the MG controller, while Figure 3 shows the total delay between the measurement timestamp and the moment of control setpoints arrival.
+**Observations**\
+Due to the nature of electrical grid with high dynamics (like islanded microgrid), the main purpose of this setup is to investigate how the FIWARE 
+powered cloud can handle a service requiring relatively quick communication (low communication latency). Figures 2-4 present 3 main delays in operation
+based on timestamps measured at different stages (from meters through cloud-controller, up to execution of control settings). 
 
-![](Figures/fig2.png)\
-**Figure 2**: One-way i.e. sensor to controller delay.
+The setup was tuned through the parameters such as
+reporting rates of different devices (PMU and RTDS-based), PDC synchronization frequency and range, PDC memory buffer, controller execution frequency etc. in order to 
+handle 3 cases when the devices report with frequency of 4 measurements/second (4Hz), 10 measurements/second (10Hz) and 25 measurements/second (25Hz).
 
-![](Figures/fig3.png)\
-**Figure 3**: Total delay i.e. sensor-controller-actuator delay.
+![](Figures/plot4Hz.png)\
+**Figure 2**: 3 main delays for reporting rate 4 measurements / second.
 
-The one-way delay includes following components of the delay:
+![](Figures/plot10Hz.png)\
+**Figure 3**: 3 main delays for reporting rate 10 measurements / second.
+
+![](Figures/plot25Hz.png)\
+**Figure 4**: 3 main delays for reporting rate 25 measurements / second.
+
+The operation using FIWARE deteriorates when measurements are published more often most probably due to Orion CB and other FIWARE components where the congestions appear. 
+It was not identified what exactly causes the delays in case of high reporting rate (which element in FIWARE). At for reporting rates above 25Hz the cloud 
+doesn't respond i.e. it is not possible for the controller to transmit the setpoints back to the devices. On the other hand, we can observe that the delays 
+of PDC and controller detector (blue and orange) decrease with higher reporting rate, as expected. The PDC and controller are then also running
+with the higher frequency, PDC is able to synchronize new data more frequently, and therefore the overall delay of a single measurements + synchronization + detection 
+event is lower.
+
+Entire "theoretical" total delay can include following components:
 - delay due to the windowing of signal and measurement time tag in the center of the acquisition window (can be decreased for reaching higher reporting rate but lower accuracy)
 - PMU / other device processing time (e.g. due to anialiasing filters in PMU etc.)
 - delay due to limited reporting rate. It is determined by performance of the device and implemented algorithm.
-- communication latency delay,
-- delay due to the packet dropouts - can appear especially in the communication between controller and an actuator since the control settings have to be delievered to the device and the TCP protocol is used. It does not appear in communication sensor to controller (due to UDP), however it might cause delay in phasor data concentrator,
-- delay in phasor data concentrator (PDC) due to its operational settings and eventual missing data processing accroding to a fixed waiting interval. In case of missing data, PDC has to preprocess the data causing additional delay beyond fixed waiting interval time.
-
-In the value of total delay, additionally the following should be considered:
-- delay in disturbance detector and MG controller operation,
-- communication latency, packet dropouts delays in communication controller to actuator.
+- communication latency delay incl. delay due to the packet dropouts - can appear especially in the communication between controller and an actuator since the control settings have to be delievered to the device and the TCP protocol is used. It does not appear in communication sensor to controller (due to UDP), however it might cause delay in phasor data concentrator,
+- delay in phasor data concentrator (PDC) due to its operational settings and eventual processing of missing data accroding to a fixed waiting interval.
+- delay in disturbance detector and MG controller or other controllers,
+- communication latency, packet dropouts delays in communication "back" from controller to actuator.
 
 **Communication**\
 The components of the setup have been implemented inside of a laboratory consiting of multiple networks. The components are connected to a single setup through tunneling of a configured OpenVPN network. The wireless communication has not been implemented in the current setup.
